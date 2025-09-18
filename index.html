@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WatchDogs — Мини-игра взлома</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#06070a;
+      --neon:#00e6ff;
+      --accent:#7cffb2;
+      --danger:#ff5c5c;
+      --muted:#94a3b8;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#040509 0%,#07101a 100%);color:#dbeafe;font-family:Roboto Mono,monospace}
+    .wrap{max-width:980px;margin:28px auto;padding:24px;border-radius:12px;background:linear-gradient(180deg,rgba(0,0,0,0.45),rgba(0,0,0,0.25));box-shadow:0 10px 40px rgba(0,0,0,0.6),0 0 30px rgba(0,230,255,0.03)}
+    header{display:flex;align-items:center;gap:16px}
+    .logo{font-family:Orbitron,monospace;font-weight:700;color:var(--neon);font-size:20px;letter-spacing:1px}
+    .sub{color:var(--muted);font-size:13px}
+
+    .game{display:flex;gap:20px;margin-top:18px}
+    .left{flex:1}
+    .right{width:320px}
+
+    /* HUD */
+    .phone{background:linear-gradient(180deg,#021019,#071722);border-radius:14px;padding:18px;border:1px solid rgba(0,230,255,0.05)}
+    .phone h2{margin:0;font-size:16px;color:var(--neon)}
+    .desc{color:var(--muted);font-size:13px;margin-top:6px}
+
+    /* Grid */
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+    .node{background:rgba(255,255,255,0.02);border-radius:12px;padding:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;border:1px solid rgba(255,255,255,0.03);transition:transform .12s ease, box-shadow .12s}
+    .node:hover{transform:translateY(-6px)}
+    .node .dot{width:36px;height:36px;border-radius:50%;background:linear-gradient(180deg,rgba(0,230,255,0.12),rgba(0,230,255,0.06));display:flex;align-items:center;justify-content:center;color:var(--neon);font-weight:700}
+    .node.active{box-shadow:0 8px 30px rgba(0,230,255,0.08);background:linear-gradient(180deg,rgba(0,230,255,0.03),rgba(0,230,255,0.01));}
+    .node.flash{animation:flash .45s ease}
+    @keyframes flash{0%{transform:scale(1)}50%{transform:scale(1.15);box-shadow:0 0 24px rgba(0,230,255,0.45)}100%{transform:scale(1)}}
+
+    .controls{display:flex;gap:8px;margin-top:12px}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:var(--neon);cursor:pointer}
+    button:active{transform:translateY(2px)}
+
+    .meter{margin-top:18px}
+    .meter .bar{height:18px;background:rgba(255,255,255,0.03);border-radius:10px;overflow:hidden;border:1px solid rgba(0,0,0,0.4)}
+    .meter .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--neon),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;color:#001;text-shadow:none}
+    .meter .label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
+
+    /* SMS Modal */
+    .sms-overlay{position:fixed;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.6),rgba(0,0,0,0.8));display:flex;align-items:center;justify-content:center;z-index:100;display:none}
+    .sms{background:#071422;border-radius:12px;padding:22px;width:420px;border:1px solid rgba(0,230,255,0.08);box-shadow:0 20px 70px rgba(0,0,0,0.7)}
+    .sms h3{margin:0;color:var(--neon);font-family:Orbitron}
+    .sms p{color:#cfeefc;margin-top:12px;line-height:1.3}
+    .sms .meta{color:var(--muted);font-size:12px;margin-top:8px}
+    .close-sms{margin-top:12px;padding:8px 10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.05);cursor:pointer;color:var(--neon)}
+
+    footer{margin-top:18px;color:var(--muted);font-size:12px}
+
+    /* small screen */
+    @media (max-width:880px){.game{flex-direction:column}.right{width:100%}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">WATCH_DOGS — HACK SIM</div>
+      <div class="sub">Мини-игра: повтори паттерн, чтобы продвинуть шкалу взлома</div>
+    </header>
+
+    <div class="game">
+      <div class="left">
+        <div class="phone">
+          <h2>Телефон цели — интерфейс взлома</h2>
+          <div class="desc">Смотри на последовательность узлов, запомни её и повтори. За каждый правильно повторённый паттерн шкала взлома повышается.</div>
+
+          <div class="grid" id="grid">
+            <!-- nodes injected by JS -->
+          </div>
+
+          <div class="controls">
+            <button id="showPatternBtn">Показать паттерн</button>
+            <button id="newPatternBtn">Новый паттерн</button>
+            <button id="resetBtn">Сбросить прогресс</button>
+          </div>
+
+          <div class="meter">
+            <div class="bar"><div class="fill" id="fill">0%</div></div>
+            <div class="label"><span>Шкала взлома</span><span id="percent">0%</span></div>
+          </div>
+
+        </div>
+
+        <footer>Сделано в стиле Watch Dogs 1. Не настоящий взлом — только игра.</footer>
+      </div>
+
+      <div class="right">
+        <div class="phone">
+          <h2>Информация</h2>
+          <div class="desc">Правила: Нажимай на узлы в том порядке, в котором они подсвечивались. Ошибка — небольшая потеря времени. Заверши несколько паттернов, чтобы заполнить шкалу до 100%.</div>
+          <div style="margin-top:12px;color:var(--muted);font-size:13px">Кнопки:
+            <ul style="margin:8px 0 0 18px;color:var(--muted)">
+              <li>Показать паттерн — покажет текущий паттерн ещё раз.</li>
+              <li>Новый паттерн — создаёт новый паттерн.</li>
+              <li>Сбросить прогресс — обнулить шкалу.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMS modal -->
+  <div class="sms-overlay" id="smsOverlay">
+    <div class="sms">
+      <h3>Новое СМС</h3>
+      <p id="smsText">...</p>
+      <div class="meta">Источник: зашифрованный канал • Уровень секретности: Высокий</div>
+      <button class="close-sms" id="closeSms">Закрыть</button>
+    </div>
+  </div>
+
+  <script>
+    // Game logic
+    const grid = document.getElementById('grid');
+    const fill = document.getElementById('fill');
+    const percentLabel = document.getElementById('percent');
+    const smsOverlay = document.getElementById('smsOverlay');
+    const smsText = document.getElementById('smsText');
+    const closeSms = document.getElementById('closeSms');
+
+    const NODE_COUNT = 9; // 3x3
+    let pattern = [];
+    let userInput = [];
+    let progress = 0;
+    let acceptingInput = false;
+
+    function createGrid(){
+      grid.innerHTML = '';
+      for(let i=0;i<NODE_COUNT;i++){
+        const n = document.createElement('div');
+        n.className = 'node';
+        n.dataset.index = i;
+        n.innerHTML = `<div class="dot">${i+1}</div>`;
+        n.addEventListener('click', onNodeClick);
+        grid.appendChild(n);
+      }
+    }
+
+    function flashNode(i, delay=0){
+      const node = grid.querySelector(`[data-index='${i}']`);
+      if(!node) return;
+      setTimeout(()=>{
+        node.classList.add('flash');
+        setTimeout(()=>node.classList.remove('flash'),450);
+      }, delay);
+    }
+
+    function generatePattern(){
+      const len = Math.floor(Math.random()*3)+4; // 4..6
+      const arr = [];
+      while(arr.length < len){
+        const r = Math.floor(Math.random()*NODE_COUNT);
+        if(!arr.includes(r)) arr.push(r);
+      }
+      pattern = arr;
+      console.log('pattern', pattern);
+      showPattern();
+    }
+
+    function showPattern(){
+      acceptingInput = false;
+      userInput = [];
+      // show sequence
+      let delay = 300;
+      pattern.forEach((p,i)=>{
+        flashNode(p, i*650 + delay);
+      });
+      // allow input after animation
+      setTimeout(()=>{acceptingInput = true;}, pattern.length*650 + delay + 120);
+    }
+
+    function onNodeClick(e){
+      if(!acceptingInput) return;
+      const idx = parseInt(e.currentTarget.dataset.index);
+      // visual feedback
+      e.currentTarget.classList.add('active');
+      setTimeout(()=>e.currentTarget.classList.remove('active'),220);
+
+      userInput.push(idx);
+      const curPos = userInput.length - 1;
+      if(idx !== pattern[curPos]){
+        // wrong
+        acceptingInput = false;
+        loseFeedback();
+        return;
+      }
+
+      if(userInput.length === pattern.length){
+        // success
+        acceptingInput = false;
+        successFeedback();
+      }
+    }
+
+    function loseFeedback(){
+      // small penalty
+      progress = Math.max(0, progress - 3);
+      updateProgress();
+      // show quick red flash on window
+      document.body.animate([{background:'linear-gradient(180deg,#44080b,#09050a)'},{background:'linear-gradient(180deg,#040509 0%,#07101a 100%)'}],{duration:360}).onfinish=()=>{};
+      // allow retry after short delay
+      setTimeout(()=>{acceptingInput=true;userInput=[];showPattern();},800);
+    }
+
+    function successFeedback(){
+      // increase progress by a bit
+      const gain = Math.floor(Math.random()*18)+15; // 15..32
+      progress = Math.min(100, progress + gain);
+      updateProgress();
+      // tiny celebration
+      const fillEl = document.getElementById('fill');
+      fillEl.animate([{transform:'scale(1)'},{transform:'scale(1.04)'},{transform:'scale(1)'}],{duration:320});
+      // next pattern or finish
+      if(progress >= 100){
+        showSMS();
+      } else {
+        setTimeout(()=>{generatePattern();},700);
+      }
+    }
+
+    function updateProgress(){
+      fill.style.width = progress + '%';
+      fill.textContent = progress + '%';
+      percentLabel.textContent = progress + '%';
+    }
+
+    function showSMS(){
+      // The required Russian message
+      smsText.textContent = "Мы получили данные Министра - Он будет одет в Белом костюме в черных штанах, цвет бороды и волос рыжие. Глаза черные.";
+      smsOverlay.style.display = 'flex';
+    }
+
+    // Controls
+    document.getElementById('showPatternBtn').addEventListener('click', ()=>{ if(pattern.length) showPattern();});
+    document.getElementById('newPatternBtn').addEventListener('click', ()=>{ generatePattern(); });
+    document.getElementById('resetBtn').addEventListener('click', ()=>{ progress = 0; updateProgress(); generatePattern(); });
+    closeSms.addEventListener('click', ()=>{ smsOverlay.style.display='none'; });
+
+    // Init
+    createGrid();
+    generatePattern();
+    updateProgress();
+
+    // Accessibility: keyboard numbers 1..9
+    window.addEventListener('keydown', (e)=>{
+      if(!acceptingInput) return;
+      if(e.key >= '1' && e.key <= '9'){
+        const idx = parseInt(e.key)-1;
+        const node = grid.querySelector(`[data-index='${idx}']`);
+        if(node) node.click();
+      }
+    });
+  </script>
+</body>
+</html>
